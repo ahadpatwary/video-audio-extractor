@@ -57,33 +57,74 @@
 
 // }
 
-
-import { EventEmitter } from "node:events";
-
-// export type DemuxEvents = {
-//     progress: DemuxProgressEvent;
-//     ready: {
-//         track: AudioTrackInfo;
-//     };
-// };
-
 type EventMap = Record<string, unknown>;
 
-export class TypedEventEmitter<Events extends EventMap> extends EventEmitter {
+type Listener<T> = (data: T) => void;
+
+export class TypedEventEmitter<Events extends EventMap> {
+    private readonly listeners = new Map<
+        keyof Events,
+        Set<Listener<Events[keyof Events]>>
+    >();
+
     on<K extends keyof Events>(
         eventName: K,
-        listener: (data: Events[K]) => void
+        listener: Listener<Events[K]>
     ): this {
-        return super.on(
-            eventName as string | symbol,
-            listener as (...args: any[]) => void
+        let eventListeners = this.listeners.get(eventName);
+
+        if (!eventListeners) {
+            eventListeners = new Set();
+            this.listeners.set(eventName, eventListeners);
+        }
+
+        eventListeners.add(
+            listener as Listener<Events[keyof Events]>
         );
+
+        return this;
+    }
+
+    off<K extends keyof Events>(
+        eventName: K,
+        listener: Listener<Events[K]>
+    ): this {
+        const eventListeners = this.listeners.get(eventName);
+
+        if (!eventListeners) {
+            return this;
+        }
+
+        eventListeners.delete(
+            listener as Listener<Events[keyof Events]>
+        );
+
+        if (eventListeners.size === 0) {
+            this.listeners.delete(eventName);
+        }
+
+        return this;
     }
 
     emit<K extends keyof Events>(
         eventName: K,
         data: Events[K]
     ): boolean {
-        return super.emit(eventName as string | symbol, data);
+        const eventListeners = this.listeners.get(eventName);
+
+        if (!eventListeners || eventListeners.size === 0) {
+            return false;
+        }
+
+        for (const listener of eventListeners) {
+            listener(data);
+        }
+
+        return true;
+    }
+
+    removeAllListeners(): this {
+        this.listeners.clear();
+        return this;
     }
 }

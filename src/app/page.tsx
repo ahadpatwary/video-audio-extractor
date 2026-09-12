@@ -8,9 +8,10 @@ import { ResultPanel } from "@/components/ResultPanel";
 import { useExtractionPipeline } from "@/hooks/useExtractionPipeline";
 
 export default function HomePage() {
-  const { stage, demuxProgress, uploadProgress, result, error, start, reset } =
-    useExtractionPipeline();
+  // const { stage, demuxProgress, uploadProgress, result, error, start, reset } =
+  //   useExtractionPipeline();
 
+  const { stage, result, error, start, reset } = useExtractionPipeline();
   const isBusy = stage !== "idle" && stage !== "done" && stage !== "error";
 
   return (
@@ -47,12 +48,12 @@ export default function HomePage() {
             </div>
           )}
 
-          <PipelineSteps
+          {/* <PipelineSteps
             stage={stage}
             demuxProgress={demuxProgress}
             uploadProgress={uploadProgress}
             audioCodec={result?.track.codec}
-          />
+          /> */}
 
           {result && <ResultPanel result={result} onReset={reset} />}
         </section>

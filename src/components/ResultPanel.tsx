@@ -10,18 +10,22 @@ interface ResultPanelProps {
 }
 
 export function ResultPanel({ result, onReset }: ResultPanelProps) {
+  console.log("blob", result.blob);
+  console.log("blobsize", result.blob.size);
+  console.log("blob type", result.blob.type);
   const objectUrl = useMemo(() => URL.createObjectURL(result.blob), [result.blob]);
 
+  console.log("objectUrl", objectUrl);
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="font-display text-sm font-medium text-ink-primary">{result.fileName}</p>
-          <p className="mt-1 font-mono text-xs text-ink-secondary">
+          {/* <p className="mt-1 font-mono text-xs text-ink-secondary">
             {formatDuration(result.track.duration)} · {formatCodec(result.track.codec)} ·{" "}
             {result.track.sampleRate ? `${result.track.sampleRate / 1000}kHz · ` : ""}
             {formatBytes(result.blob.size)} · {formatReduction(result.sourceSizeBytes, result.blob.size)}
-          </p>
+          </p> */}
         </div>
         <span className="rounded-full bg-success/10 px-2.5 py-1 font-mono text-xs text-success">
           sent to backend

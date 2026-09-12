@@ -1,53 +1,64 @@
+import { AppError } from "../errors/AppError";
+import { TypedEventEmitter } from "../events/Emitter";
 import { WorkerInboundMessage } from "../worker/extraction.worker";
-import { WorkerOutboundMessage } from "./types";
+import { PipelineStage, WorkerOutboundMessage } from "./types";
 
 
 
-export type PipelineState = 
-    | "idle"
-    | "validating"
-    | 'extracting'
-    | 'extracted'
-    | 'requesting-upload-url'
-    | 'uploading'
-    | 'done'
-    | 'error'
-    | 'aborted'
-;
 
 
-export class ExtractionPipeline {
-    private readonly worker: Worker;
+export interface PipelineState {
+  stage: PipelineStage;
+  processedBytes: number;
+  totalBytes: number;
+  persent: number;
+  blob?: Blob;
+  track?: number;
+  error?: AppError;
+  objectKey?: string;
+}
+
+
+export type PipelineEvents = {
+    state: PipelineState;
+}
+
+export class ExtractionPipeline extends TypedEventEmitter<PipelineEvents>  {
+    private worker: Worker | null = null;
     private readonly maxFileSizeBytes: number; 
+    private state: PipelineState = { 
+        stage: "idle", 
+        processedBytes: 0, 
+        totalBytes: 0,
+        persent: 0, 
+    };
 
     constructor(maxAllowdFileSizeBytes: number) {
-        this.worker = new Worker( new URL(
-            "../../workers/extraction.worker.ts", 
-            import.meta.url
-        ));
-
+        super();
 
         this.maxFileSizeBytes = maxAllowdFileSizeBytes;
     }
 
     async run(file: File): Promise<void> {
 
-        if(typeof Worker === 'undefined') {
-            //TODO:
-            throw new Error('Browser do not support web worker');
-        }
+        // if(typeof Worker === 'undefined') {
+        //     //TODO:
+        //     throw new Error('Browser do not support web worker');
+        // }
 
-        if(file.size > this.maxFileSizeBytes) {
-            //TODO:
-            throw new Error('File size is too long');
-        }
+        // if(file.size > this.maxFileSizeBytes) {
+        //     //TODO:
+        //     throw new Error('File size is too long');
+        // }
+
+        console.log("sendTime", file)
 
         await this.#runWorker(file);
 
     }
 
     abort(): void {
-        this.worker.postMessage({ kind: "abort" } satisfies WorkerInboundMessage);
+        this.worker?.postMessage({ kind: "abort" } satisfies WorkerInboundMessage);
         // this.uploadAbortController?.abort();
         // this.setState({ ...this.state, stage: "aborted" });
     }
@@ -61,6 +72,9 @@ export class ExtractionPipeline {
     async #runWorker(file: File): Promise<void> {
         return new Promise((resolve, reject) => {
 
+            const worker = new Worker(new URL("../worker/extraction.worker.ts", import.meta.url));
+            this.worker = worker;
+
             this.worker.onerror = (ev) => {
                 // reject(this.fail(new WorkerCrashedError(ev.message)));
                 reject(ev)
@@ -71,9 +85,23 @@ export class ExtractionPipeline {
                 switch(msg.kind) {
                     case 'progress':
                         //TODO: state upadate
+                        this.#setState({
+                            persent: msg.percent,
+                            stage: msg.kind === 'progress' ? 'extracting' : 'extracting',
+                            processedBytes: msg.bytesProcessed,
+                            totalBytes: msg.totalBytes,
+                        })
                         break;
                     case 'done':
                         //TODO: state uplate
+                        console.log("pipeline blob emmit", msg.blob);
+                        this.#setState({
+                            persent: 100,
+                            stage: 'done',
+                            processedBytes: msg.sourceSizeBytes,
+                            totalBytes: msg.sourceSizeBytes,
+                            blob: msg.blob,
+                        })
                         resolve()
                         break;
                     case 'error':
@@ -91,6 +119,11 @@ export class ExtractionPipeline {
             } satisfies WorkerInboundMessage)
         })
   
+    }
+
+    #setState(partial: PipelineState) {
+        this.state = partial;
+        this.emit("state", this.state);
     }
 }
 

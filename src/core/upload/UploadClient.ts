@@ -39,13 +39,18 @@ export class HttpUploadClient extends UploadClient {
   }
 
   public async upload(blob: Blob, fileName: string): Promise<UploadResult> {
-    const presigned = await this.requestPresignedUrl({
-      fileName,
-      contentType: blob.type || "audio/mp4",
-      sizeBytes: blob.size,
-    });
+    // const presigned = await this.requestPresignedUrl({
+    //   fileName,
+    //   contentType: blob.type || "audio/mp4",
+    //   sizeBytes: blob.size,
+    // });
 
-    await this.putToPresignedUrl(presigned, blob);
+    // await this.putToPresignedUrl(presigned, blob);
+
+    console.log('blob', blob);
+    const presigned = {
+      fileKey: "file1"
+    }
 
     return { fileKey: presigned.fileKey };
   }

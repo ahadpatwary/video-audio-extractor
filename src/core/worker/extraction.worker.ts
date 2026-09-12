@@ -31,6 +31,7 @@ async function handleStart(file: File, maxFileSizeBytes: number) {
 
 
     try {
+        console.log("start");
         const result: DemuxResult = await demuxer.run(currentController.signal);
         console.log("totoal result", result);
         post({
@@ -41,7 +42,9 @@ async function handleStart(file: File, maxFileSizeBytes: number) {
         })
         // Blob is structured-cloneable directly; no explicit transfer list needed.
 
-    } catch (rawErr) {
+    } catch (rawErr: Error) {
+        console.log('error', rawErr);
+        throw new Error(rawErr?.message );
         // const err = toAppError(rawErr);
         // post({ kind: "error", code: err.code, message: err.toUserMessage(), retryable: err.retryable });  //TODO: It have to fix leater
     } finally {
@@ -52,9 +55,11 @@ async function handleStart(file: File, maxFileSizeBytes: number) {
 
 ctx.addEventListener('message', (event: MessageEvent<WorkerInboundMessage>): any => {
     const msg: WorkerInboundMessage = event.data;
+    console.log("event comming");
 
     if(msg.kind === "start") {
-        void handleStart(msg.file, msg.maxFileSizeBytes);
+        console.log("ahad")
+        handleStart(msg.file, msg.maxFileSizeBytes);
     }
 
     if(msg.kind === "abort") {

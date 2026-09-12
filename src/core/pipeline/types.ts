@@ -3,7 +3,7 @@ import { DemuxResult } from "../extraction/AudioTrackDemuxer";
 import type { AudioTrackInfo, DemuxProgressEvent } from "../extraction/types";
 import type { UploadProgressEvent } from "../upload/types";
 
-export type PipelineState = 
+export type PipelineStage = 
     | "idle"
     | "validating"
     | 'extracting'
@@ -16,7 +16,7 @@ export type PipelineState =
 ;
 
 export interface PipelineResult {
-  track: AudioTrackInfo;
+  track?: AudioTrackInfo;
   blob: Blob;
   fileName: string;
   sourceSizeBytes: number;
