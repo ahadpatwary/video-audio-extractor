@@ -1,93 +1,96 @@
-import { Emitter } from "../events/Emitter";
-import { AppError } from "../errors/AppError";
-import { AudioTrackDemuxer } from "../extraction/AudioTrackDemuxer";
-import { HttpUploadClient, type UploadClient } from "../upload/UploadClient";
-import type { PipelineEvents, PipelineResult, PipelineStage } from "./types";
+import { WorkerInboundMessage } from "../worker/extraction.worker";
+import { WorkerOutboundMessage } from "./types";
 
-/**
- * Orchestrates a single file end to end: demux -> package -> upload.
- *
- * This is the one class the UI layer talks to. It owns no DOM state —
- * `useExtractionPipeline` (a hook) is the thin adapter that mirrors this
- * class's events into React state.
- */
-export class ExtractionPipeline extends Emitter<PipelineEvents> {
-  private readonly uploadClient: UploadClient;
-  private stage: PipelineStage = "idle";
 
-  constructor(uploadClient: UploadClient = new HttpUploadClient()) {
-    super();
-    this.uploadClient = uploadClient;
-  }
 
-  public getStage(): PipelineStage {
-    return this.stage;
-  }
+export type PipelineState = 
+    | "idle"
+    | "validating"
+    | 'extracting'
+    | 'extracted'
+    | 'requesting-upload-url'
+    | 'uploading'
+    | 'done'
+    | 'error'
+    | 'aborted'
+;
 
-  public async run(file: File): Promise<PipelineResult> {
-    try {
-      const demuxer = new AudioTrackDemuxer(file);
-      demuxer.on("progress", (progress) => {
-        this.setStage(progress.stage);
-        this.emit("demux-progress", progress);
-      });
 
-      const demuxResult = await demuxer.run();
-      this.setStage("packaging");
+export class ExtractionPipeline {
+    private readonly worker: Worker;
+    private readonly maxFileSizeBytes: number; 
 
-      const audioFileName = this.deriveAudioFileName(file.name);
+    constructor(maxAllowdFileSizeBytes: number) {
+        this.worker = new Worker( new URL(
+            "../../workers/extraction.worker.ts", 
+            import.meta.url
+        ));
 
-      this.setStage("uploading");
-      const unsubscribe = this.uploadClient.on("progress", (progress) => {
-        this.emit("upload-progress", progress);
-      });
-      const uploadResult = await this.uploadClient.upload(demuxResult.blob, audioFileName);
-      unsubscribe();
 
-      const result: PipelineResult = {
-        track: demuxResult.track,
-        blob: demuxResult.blob,
-        fileName: audioFileName,
-        sourceSizeBytes: demuxResult.sourceSizeBytes,
-        fileKey: uploadResult.fileKey,
-      };
-
-      this.setStage("done");
-      this.emit("done", result);
-      return result;
-    } catch (error) {
-      this.setStage("error");
-      const appError = this.toAppError(error);
-      this.emit("error", { error: appError });
-      throw appError;
+        this.maxFileSizeBytes = maxAllowdFileSizeBytes;
     }
-  }
 
-  private setStage(stage: PipelineStage): void {
-    this.stage = stage;
-    this.emit("stage", { stage });
-  }
+    async run(file: File): Promise<void> {
 
-  private deriveAudioFileName(sourceFileName: string): string {
-    const withoutExtension = sourceFileName.replace(/\.[^/.]+$/, "");
-    return `${withoutExtension || "audio"}.m4a`;
-  }
+        if(typeof Worker === 'undefined') {
+            //TODO:
+            throw new Error('Browser do not support web worker');
+        }
 
-  private toAppError(error: unknown): AppError {
-    if (error instanceof AppError) return error;
-    return new UnknownPipelineError(error);
-  }
+        if(file.size > this.maxFileSizeBytes) {
+            //TODO:
+            throw new Error('File size is too long');
+        }
+
+        await this.#runWorker(file);
+
+    }
+
+    abort(): void {
+        this.worker.postMessage({ kind: "abort" } satisfies WorkerInboundMessage);
+        // this.uploadAbortController?.abort();
+        // this.setState({ ...this.state, stage: "aborted" });
+    }
+
+    destroy(): void {
+        this.worker?.terminate();
+        // this.worker = null;
+    }
+
+
+    async #runWorker(file: File): Promise<void> {
+        return new Promise((resolve, reject) => {
+
+            this.worker.onerror = (ev) => {
+                // reject(this.fail(new WorkerCrashedError(ev.message)));
+                reject(ev)
+            };
+            this.worker.onmessage = (event: MessageEvent<WorkerOutboundMessage>): any => {
+                const msg = event.data;
+
+                switch(msg.kind) {
+                    case 'progress':
+                        //TODO: state upadate
+                        break;
+                    case 'done':
+                        //TODO: state uplate
+                        resolve()
+                        break;
+                    case 'error':
+                        //TODO: we have to update state
+                        reject()
+                        break;
+
+                }
+            }
+
+            this.worker.postMessage({ 
+                kind: "start",
+                file,
+                maxFileSizeBytes: this.maxFileSizeBytes 
+            } satisfies WorkerInboundMessage)
+        })
+  
+    }
 }
 
-/** Catch-all for anything unexpected that isn't already an `AppError`. */
-class UnknownPipelineError extends AppError {
-  public readonly code = "pipeline/unknown";
-
-  constructor(cause: unknown) {
-    super("Something unexpected went wrong.", cause);
-  }
-
-  public override toUserMessage(): string {
-    return "Something unexpected went wrong. Please try again.";
-  }
-}

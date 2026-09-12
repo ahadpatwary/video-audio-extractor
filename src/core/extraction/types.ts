@@ -20,7 +20,6 @@ export interface DemuxResult {
 export type DemuxStage = "reading" | "demuxing" | "packaging";
 
 export interface DemuxProgressEvent {
-  stage: DemuxStage;
   /** 0–100 */
   percent: number;
   bytesProcessed: number;
