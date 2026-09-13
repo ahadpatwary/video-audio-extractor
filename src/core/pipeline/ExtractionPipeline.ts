@@ -1,22 +1,36 @@
 import { AppError } from "../errors/AppError";
 import { TypedEventEmitter } from "../events/Emitter";
 import { WorkerInboundMessage } from "../worker/extraction.worker";
-import { PipelineStage, WorkerOutboundMessage } from "./types";
+import { WorkerOutboundMessage } from "./types";
 
 
-
-
-
-export interface PipelineState {
-  stage: PipelineStage;
-  processedBytes: number;
-  totalBytes: number;
-  persent: number;
-  blob?: Blob;
-  track?: number;
-  error?: AppError;
-  objectKey?: string;
-}
+export type PipelineState =
+    | {
+        stage: "idle";
+    } | {
+        stage: "validating";
+    } | {
+        stage: "extracting";
+        percent: number;
+        processedBytes: number;
+        fileSizeBytes: number;
+    } | {
+        stage: "extracted";
+        fileSizeBytes: number;
+        fileName: string;
+        blob: Blob;
+    } | {
+        stage: "uploading";
+        percent: number;
+    } | {
+        stage: "uploaded";
+        url: string;
+    } | {
+        stage: "error";
+        messages: string[];
+    } | {
+        stage: "aborted";
+    };
 
 
 export type PipelineEvents = {
@@ -26,12 +40,7 @@ export type PipelineEvents = {
 export class ExtractionPipeline extends TypedEventEmitter<PipelineEvents>  {
     private worker: Worker | null = null;
     private readonly maxFileSizeBytes: number; 
-    private state: PipelineState = { 
-        stage: "idle", 
-        processedBytes: 0, 
-        totalBytes: 0,
-        persent: 0, 
-    };
+    private state: PipelineState = { stage: 'idle' };
 
     constructor(maxAllowdFileSizeBytes: number) {
         super();
@@ -51,7 +60,7 @@ export class ExtractionPipeline extends TypedEventEmitter<PipelineEvents>  {
         //     throw new Error('File size is too long');
         // }
 
-        console.log("sendTime", file)
+        //TODO: I have to validate here because no need to validate on worker becasue it's a low task
 
         await this.#runWorker(file);
 
@@ -84,23 +93,19 @@ export class ExtractionPipeline extends TypedEventEmitter<PipelineEvents>  {
 
                 switch(msg.kind) {
                     case 'progress':
-                        //TODO: state upadate
                         this.#setState({
-                            persent: msg.percent,
-                            stage: msg.kind === 'progress' ? 'extracting' : 'extracting',
-                            processedBytes: msg.bytesProcessed,
-                            totalBytes: msg.totalBytes,
+                            stage: 'extracting',
+                            percent: msg.percent,
+                            processedBytes: msg.totalBytes,
+                            fileSizeBytes: msg.totalBytes,
                         })
                         break;
                     case 'done':
-                        //TODO: state uplate
-                        console.log("pipeline blob emmit", msg.blob);
                         this.#setState({
-                            persent: 100,
-                            stage: 'done',
-                            processedBytes: msg.sourceSizeBytes,
-                            totalBytes: msg.sourceSizeBytes,
+                            stage: 'extracted',
                             blob: msg.blob,
+                            fileName: 'voice.tsx',
+                            fileSizeBytes: msg.sourceSizeBytes,
                         })
                         resolve()
                         break;

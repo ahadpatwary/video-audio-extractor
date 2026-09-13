@@ -11,8 +11,8 @@ export default function HomePage() {
   // const { stage, demuxProgress, uploadProgress, result, error, start, reset } =
   //   useExtractionPipeline();
 
-  const { stage, result, error, start, reset } = useExtractionPipeline();
-  const isBusy = stage !== "idle" && stage !== "done" && stage !== "error";
+  const { state, start, reset } = useExtractionPipeline();
+  const isBusy = state.stage !== "idle" && state.stage !== "uploaded" && state.stage !== "error";
 
   return (
     <div className="mx-auto flex min-h-screen max-w-content flex-col px-6 sm:px-10">
@@ -35,9 +35,10 @@ export default function HomePage() {
         <section className="flex flex-col gap-6">
           <DropZone onFileSelected={start} disabled={isBusy} />
 
-          {error && (
+          {state.stage === 'error' && (
             <div role="alert" className="rounded-lg border border-danger/40 bg-danger/5 px-4 py-3">
-              <p className="text-sm text-danger">{error.toUserMessage()}</p>
+              {/* TODO: here I have to fix the error message because it's a array */}
+              <p className="text-sm text-danger">{state.messages[0]}</p> 
               <button
                 type="button"
                 onClick={reset}
@@ -48,14 +49,12 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* <PipelineSteps
-            stage={stage}
-            demuxProgress={demuxProgress}
-            uploadProgress={uploadProgress}
-            audioCodec={result?.track.codec}
-          /> */}
+          <PipelineSteps
+            state={state}
+            // audioCodec={undefined}
+          />
 
-          {result && <ResultPanel result={result} onReset={reset} />}
+          {state.stage === 'extracted' && <ResultPanel result={state} onReset={reset} />}
         </section>
       </main>
 

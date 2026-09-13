@@ -2,6 +2,7 @@
 
 import { AudioTrackDemuxer, DemuxProgressEvent, DemuxResult } from "../extraction/AudioTrackDemuxer";
 import { TopLevelBoxScanner } from "../extraction/TopLevelBoxScanner";
+import { PipelineState } from "../pipeline/ExtractionPipeline";
 import { WorkerOutboundMessage } from "../pipeline/types";
 
 export type WorkerInboundMessage =
@@ -11,7 +12,7 @@ export type WorkerInboundMessage =
 const ctx: DedicatedWorkerGlobalScope = self as unknown as DedicatedWorkerGlobalScope;
 let currentController: AbortController | null = null;
 
-function post(data: WorkerOutboundMessage, transfer: Transferable[] = []) {
+function post(data: PipelineState, transfer: Transferable[] = []) {
     ctx.postMessage(data, transfer);
 }
 
@@ -27,7 +28,12 @@ async function handleStart(file: File, maxFileSizeBytes: number) {
     const boxScanner = new TopLevelBoxScanner(file);
     const demuxer = new AudioTrackDemuxer(file, boxScanner);
 
-    demuxer.on('progress', (data: DemuxProgressEvent) => post({ kind: "progress", ...data }))
+    demuxer.on('progress', (data: DemuxProgressEvent) => post({
+        stage: "extracting", 
+        percent: data.percent,
+        processedBytes: data.bytesProcessed,
+        fileSizeBytes: data.totalBytes,
+    }))
 
 
     try {
@@ -35,16 +41,16 @@ async function handleStart(file: File, maxFileSizeBytes: number) {
         const result: DemuxResult = await demuxer.run(currentController.signal);
         console.log("totoal result", result);
         post({
-            kind: "done",
+            stage: "extracted",
             blob: result.blob,
-            track: result.track,
-            sourceSizeBytes: result.sourceSizeBytes
+            fileSizeBytes: result.sourceSizeBytes,
+            fileName: 'audio.tsx'
         })
         // Blob is structured-cloneable directly; no explicit transfer list needed.
 
-    } catch (rawErr: Error) {
+    } catch (rawErr) {
         console.log('error', rawErr);
-        throw new Error(rawErr?.message );
+        // throw new Error(rawErr?.message);
         // const err = toAppError(rawErr);
         // post({ kind: "error", code: err.code, message: err.toUserMessage(), retryable: err.retryable });  //TODO: It have to fix leater
     } finally {

@@ -99,9 +99,19 @@
 import { useMemo, useEffect } from "react";
 import type { PipelineResult } from "@/core/pipeline/types";
 import { formatBytes, formatCodec, formatDuration, formatReduction } from "@/lib/format";
+    // track?: AudioTrackInfo | undefined;
+    // blob: Blob;
+    // fileName: string;
+    // sourceSizeBytes: number;
+    // fileKey: string;
 
 interface ResultPanelProps {
-  result: PipelineResult;
+  result: {
+    stage: "extracted";
+    fileSizeBytes: number;
+    fileName: string;
+    blob: Blob;
+  };
   onReset: () => void;
 }
 
@@ -174,7 +184,7 @@ export function ResultPanel({ result, onReset }: ResultPanelProps) {
         </button>
       </div>
 
-      <p className="mt-4 font-mono text-[11px] text-ink-muted">file key: {result.fileKey}</p>
+      {/* <p className="mt-4 font-mono text-[11px] text-ink-muted">file key: {result.fileKey}</p> */}
     </div>
   );
 }

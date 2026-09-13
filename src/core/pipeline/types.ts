@@ -7,12 +7,10 @@ export type PipelineStage =
     | "idle"
     | "validating"
     | 'extracting'
-    | 'extracted'
-    | 'requesting-upload-url'
     | 'uploading'
-    | 'done'
     | 'error'
     | 'aborted'
+    | 'done'
 ;
 
 export interface PipelineResult {

@@ -6,24 +6,9 @@ import { PipelineResult, PipelineStage } from "@/core/pipeline/types"
 import { MAX_FILE_SIZE_BYTES } from "@/lib/constants";
 import { useCallback, useMemo, useRef, useState } from "react"
 
-export interface ExtractionState {
-  stage: PipelineStage;
-  extructProgress: ProgressEvent | null;
-//   uploadProgress: UploadProgressEvent | null;
-  result: PipelineResult | null;
-  error: AppError | null;
-}
-
-const INITIAL_STATE: ExtractionState = {
-  stage: "idle",
-  extructProgress: null,
-//   uploadProgress: null,
-  result: null,
-  error: null,
-};
 
 export function useExtractionPipeline() {
-    const [state, setState] = useState<ExtractionState>(INITIAL_STATE);
+    const [state, setState] = useState<PipelineState>({ stage: 'idle'});
     const pipelineRef = useRef<ExtractionPipeline | null>(null);
 
     const getPipeline = useCallback((): ExtractionPipeline => {
@@ -32,28 +17,9 @@ export function useExtractionPipeline() {
         const pipeline = new ExtractionPipeline(MAX_FILE_SIZE_BYTES); //TODO: we have to change 1000 leater
         
         pipeline.on('state', (data: PipelineState) => {
-          // setState((prev) => ({
-          //   prev.stage = data.stage,
-          //   prev.extructProgress = data.persent,
-          //   prev.result = data.blob,
-          //   prev.error = data.error,  
-          // }))
-
-          if (data.stage === "done") {
-              setState((prev) => ({
-                  ...prev,
-                  stage: data.stage,
-                  result: {
-                      blob: data.blob!,
-                      fileKey: "fileKey",
-                      fileName: "voice",
-                      sourceSizeBytes: 1000,
-                  },
-              }));
-          }
-
-          console.log("final data", data);
+            setState(() => data)
         })
+
         return pipelineRef.current = pipeline;
     }, [])
 
@@ -76,9 +42,9 @@ export function useExtractionPipeline() {
     const reset = useCallback(() => {
         pipelineRef.current?.destroy();
         pipelineRef.current = null;
-        setState(INITIAL_STATE);
+        setState({ stage: 'idle'});
     }, []);
 
-    return useMemo(() => ({ ...state, start, reset }), [state, start, reset]);
+    return useMemo(() => ({ state, start, reset }), [state, start, reset]);
 
 }
