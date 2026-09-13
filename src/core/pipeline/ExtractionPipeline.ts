@@ -88,24 +88,24 @@ export class ExtractionPipeline extends TypedEventEmitter<PipelineEvents>  {
                 // reject(this.fail(new WorkerCrashedError(ev.message)));
                 reject(ev)
             };
-            this.worker.onmessage = (event: MessageEvent<WorkerOutboundMessage>): any => {
+            this.worker.onmessage = (event: MessageEvent<PipelineState>): any => {
                 const msg = event.data;
 
-                switch(msg.kind) {
-                    case 'progress':
+                switch(msg.stage) {
+                    case 'extracting':
                         this.#setState({
                             stage: 'extracting',
                             percent: msg.percent,
-                            processedBytes: msg.totalBytes,
-                            fileSizeBytes: msg.totalBytes,
+                            processedBytes: msg.processedBytes,
+                            fileSizeBytes: msg.fileSizeBytes,
                         })
                         break;
-                    case 'done':
+                    case 'extracted':
                         this.#setState({
                             stage: 'extracted',
                             blob: msg.blob,
                             fileName: 'voice.tsx',
-                            fileSizeBytes: msg.sourceSizeBytes,
+                            fileSizeBytes: msg.fileSizeBytes,
                         })
                         resolve()
                         break;

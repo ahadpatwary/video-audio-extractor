@@ -17,6 +17,7 @@ export function useExtractionPipeline() {
         const pipeline = new ExtractionPipeline(MAX_FILE_SIZE_BYTES); //TODO: we have to change 1000 leater
         
         pipeline.on('state', (data: PipelineState) => {
+            // console.log("state...........", data);
             setState(() => data)
         })
 
